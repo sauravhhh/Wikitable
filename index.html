@@ -22,6 +22,7 @@
       border-radius: 8px;
       box-shadow: 0 2px 8px rgb(0 0 0 / 0.1);
       flex-grow: 1;
+      text-align: center;
     }
     h1 {
       text-align: center;
@@ -32,25 +33,21 @@
       margin: 0.5rem 0 0.2rem;
       font-weight: bold;
     }
-    input[type=number], select {
+    input[type=number], select, button {
       width: 100%;
-      max-width: 150px;
-      padding: 0.3rem;
+      max-width: 300px;
+      padding: 0.6rem;
       font-size: 1rem;
-      margin-bottom: 1rem;
+      margin: 0.5rem auto;
+      display: block;
+      box-sizing: border-box;
     }
     button {
       background-color: #007bff;
       border: none;
       color: white;
-      padding: 0.6rem 1.2rem;
-      font-size: 1rem;
-      margin: 1rem 0 0.5rem;
       border-radius: 4px;
       cursor: pointer;
-      display: block;
-      max-width: 300px;
-      width: 100%;
     }
     button:hover {
       background-color: #0056b3;
@@ -58,14 +55,17 @@
     #tableInput {
       width: 100%;
       border-collapse: collapse;
-      margin-bottom: 1rem;
+      margin: 1rem 0;
     }
     #tableInput td, #tableInput th {
       border: 1px solid #ddd;
       padding: 0.3rem;
       text-align: center;
     }
-    /* Wrapper for markup area + copy button */
+    #tableInput input[type=text] {
+      width: 100%;
+    }
+    /* Markup area */
     .markup-wrapper {
       max-width: 300px;
       width: 100%;
@@ -73,29 +73,11 @@
       display: flex;
       flex-direction: column;
       gap: 0.5rem;
-      /* Default left alignment */
-      justify-content: flex-start;
-      align-items: flex-start;
     }
-    /* Alignment modifiers */
-    .align-left {
-      justify-content: flex-start;
-      align-items: flex-start;
-      margin-left: 0;
-      margin-right: auto;
-    }
-    .align-center {
-      justify-content: center;
-      align-items: center;
-      margin-left: auto;
-      margin-right: auto;
-    }
-    .align-right {
-      justify-content: flex-end;
-      align-items: flex-end;
-      margin-left: auto;
-      margin-right: 0;
-    }
+    .align-left { align-items: flex-start; }
+    .align-center { align-items: center; }
+    .align-right { align-items: flex-end; }
+
     #wikiMarkup {
       font-family: monospace;
       min-height: 150px;
@@ -105,18 +87,12 @@
       padding: 0.7rem;
       border-radius: 5px;
       border: 1px solid #ccc;
-      overflow-x: auto;
       resize: vertical;
       box-sizing: border-box;
     }
     #copyBtn {
       background-color: #28a745;
-      width: 100%;
-      padding: 0.6rem 1.2rem;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 1rem;
-      border: none;
+      color: white;
     }
     #copyBtn:hover {
       background-color: #1e7e34;
@@ -129,7 +105,7 @@
       margin-top: auto;
     }
     @media (max-width: 500px) {
-      input[type=number], select {
+      input[type=number], select, button {
         max-width: 100%;
       }
       .markup-wrapper {
@@ -148,8 +124,8 @@
     <label for="cols">Columns:</label>
     <input type="number" id="cols" min="1" max="10" value="3" />
 
-    <label for="boxAlign">Box Position:</label>
-    <select id="boxAlign">
+    <label for="textAlign">Text Position:</label>
+    <select id="textAlign">
       <option value="align-left" selected>Left</option>
       <option value="align-center">Center</option>
       <option value="align-right">Right</option>
@@ -182,21 +158,36 @@
     const generateBtn = document.getElementById('generateBtn');
     const wikiMarkup = document.getElementById('wikiMarkup');
     const copyBtn = document.getElementById('copyBtn');
-    const boxAlign = document.getElementById('boxAlign');
+    const textAlign = document.getElementById('textAlign');
     const markupWrapper = document.getElementById('markupWrapper');
 
     createTableBtn.addEventListener('click', () => {
-      const rows = parseInt(rowsInput.value, 10);
-      const cols = parseInt(colsInput.value, 10);
+      const newRows = parseInt(rowsInput.value, 10);
+      const newCols = parseInt(colsInput.value, 10);
 
-      if (!rows || !cols || rows < 1 || cols < 1 || rows > 20 || cols > 10) {
+      if (!newRows || !newCols || newRows < 1 || newCols < 1 || newRows > 20 || newCols > 10) {
         alert('Please enter valid rows (1-20) and columns (1-10).');
         return;
       }
 
+      // If table already exists, expand instead of overwrite
+      let currentRows = tableInput.querySelectorAll('tbody tr').length + 1; // +1 for header
+      let currentCols = tableInput.querySelectorAll('thead th').length;
+
+      const rows = Math.max(newRows, currentRows);
+      const cols = Math.max(newCols, currentCols);
+
+      // Save existing values
+      const existingData = [];
+      tableInput.querySelectorAll('tr').forEach((row) => {
+        const rowData = [];
+        row.querySelectorAll('input').forEach((inp) => rowData.push(inp.value));
+        existingData.push(rowData);
+      });
+
       tableInput.innerHTML = '';
 
-      // Create header row
+      // Header
       const thead = document.createElement('thead');
       const headerRow = document.createElement('tr');
       for (let c = 0; c < cols; c++) {
@@ -204,23 +195,23 @@
         const input = document.createElement('input');
         input.type = 'text';
         input.placeholder = `Header ${c + 1}`;
-        input.style.width = '100%';
+        input.value = (existingData[0] && existingData[0][c]) || '';
         th.appendChild(input);
         headerRow.appendChild(th);
       }
       thead.appendChild(headerRow);
       tableInput.appendChild(thead);
 
-      // Create body rows
+      // Body
       const tbody = document.createElement('tbody');
-      for (let r = 0; r < rows - 1; r++) { // Header is one row
+      for (let r = 1; r < rows; r++) {
         const tr = document.createElement('tr');
         for (let c = 0; c < cols; c++) {
           const td = document.createElement('td');
           const input = document.createElement('input');
           input.type = 'text';
-          input.placeholder = `Row ${r + 1} Col ${c + 1}`;
-          input.style.width = '100%';
+          input.placeholder = `Row ${r} Col ${c + 1}`;
+          input.value = (existingData[r] && existingData[r][c]) || '';
           td.appendChild(input);
           tr.appendChild(td);
         }
@@ -229,19 +220,16 @@
       tableInput.appendChild(tbody);
 
       tableForm.style.display = 'block';
-      wikiMarkup.value = '';
     });
 
     generateBtn.addEventListener('click', () => {
-      const cols = tableInput.querySelectorAll('thead th').length;
-
       let markup = '{| class="wikitable"\n|-\n';
 
-      // Header row
+      // Headers
       const headers = tableInput.querySelectorAll('thead th input');
       markup += '! ' + Array.from(headers).map(input => input.value.trim() || ' ').join(' !! ') + '\n';
 
-      // Data rows
+      // Rows
       const bodyRows = tableInput.querySelectorAll('tbody tr');
       bodyRows.forEach(row => {
         markup += '|-\n';
@@ -252,55 +240,22 @@
       markup += '|}';
 
       wikiMarkup.value = markup;
-      wikiMarkup.focus();
-      wikiMarkup.select();
     });
 
     copyBtn.addEventListener('click', () => {
       const text = wikiMarkup.value;
-      if (!text) {
-        return; // Nothing to copy
-      }
-
-      // Use Clipboard API if supported
+      if (!text) return;
       if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(text).then(() => {
           copyBtn.textContent = 'Copied!';
-          setTimeout(() => copyBtn.textContent = 'Copy to Clipboard', 2000);
-        }).catch(() => fallbackCopy(text));
-      } else {
-        fallbackCopy(text);
+          setTimeout(() => (copyBtn.textContent = 'Copy to Clipboard'), 2000);
+        });
       }
     });
 
-    function fallbackCopy(text) {
-      const textarea = document.createElement('textarea');
-      textarea.value = text;
-      textarea.style.position = 'fixed'; // Prevent scrolling to bottom of page in MS Edge.
-      textarea.style.top = '-9999px';
-      document.body.appendChild(textarea);
-      textarea.focus();
-      textarea.select();
-
-      try {
-        const successful = document.execCommand('copy');
-        if (successful) {
-          copyBtn.textContent = 'Copied!';
-          setTimeout(() => copyBtn.textContent = 'Copy to Clipboard', 2000);
-        } else {
-          copyBtn.textContent = 'Failed to copy';
-        }
-      } catch (err) {
-        copyBtn.textContent = 'Failed to copy';
-      }
-
-      document.body.removeChild(textarea);
-    }
-
-    boxAlign.addEventListener('change', () => {
-      markupWrapper.className = 'markup-wrapper ' + boxAlign.value;
+    textAlign.addEventListener('change', () => {
+      markupWrapper.className = 'markup-wrapper ' + textAlign.value;
     });
   </script>
 </body>
-  </html>
-  
+</html>
