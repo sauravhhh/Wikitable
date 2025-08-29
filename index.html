@@ -33,7 +33,7 @@
       margin: 0.5rem 0 0.2rem;
       font-weight: bold;
     }
-    input[type=number], select, button {
+    input[type=number], button {
       width: 100%;
       max-width: 300px;
       padding: 0.6rem;
@@ -65,7 +65,6 @@
     #tableInput input[type=text] {
       width: 100%;
     }
-    /* Markup area */
     .markup-wrapper {
       max-width: 300px;
       width: 100%;
@@ -73,11 +72,8 @@
       display: flex;
       flex-direction: column;
       gap: 0.5rem;
+      align-items: center;
     }
-    .align-left { align-items: flex-start; }
-    .align-center { align-items: center; }
-    .align-right { align-items: flex-end; }
-
     #wikiMarkup {
       font-family: monospace;
       min-height: 150px;
@@ -105,7 +101,7 @@
       margin-top: auto;
     }
     @media (max-width: 500px) {
-      input[type=number], select, button {
+      input[type=number], button {
         max-width: 100%;
       }
       .markup-wrapper {
@@ -124,13 +120,6 @@
     <label for="cols">Columns:</label>
     <input type="number" id="cols" min="1" max="10" value="3" />
 
-    <label for="textAlign">Text Position:</label>
-    <select id="textAlign">
-      <option value="align-left" selected>Left</option>
-      <option value="align-center">Center</option>
-      <option value="align-right">Right</option>
-    </select>
-
     <button id="createTableBtn">Create Table</button>
 
     <form id="tableForm" style="display:none;">
@@ -138,7 +127,7 @@
       <button type="button" id="generateBtn">Generate WikiTable</button>
     </form>
 
-    <div id="markupWrapper" class="markup-wrapper align-left">
+    <div id="markupWrapper" class="markup-wrapper">
       <label for="wikiMarkup" style="width: 100%;">Generated WikiTable Markup:</label>
       <textarea id="wikiMarkup" readonly></textarea>
       <button id="copyBtn">Copy to Clipboard</button>
@@ -158,8 +147,6 @@
     const generateBtn = document.getElementById('generateBtn');
     const wikiMarkup = document.getElementById('wikiMarkup');
     const copyBtn = document.getElementById('copyBtn');
-    const textAlign = document.getElementById('textAlign');
-    const markupWrapper = document.getElementById('markupWrapper');
 
     createTableBtn.addEventListener('click', () => {
       const newRows = parseInt(rowsInput.value, 10);
@@ -170,14 +157,7 @@
         return;
       }
 
-      // If table already exists, expand instead of overwrite
-      let currentRows = tableInput.querySelectorAll('tbody tr').length + 1; // +1 for header
-      let currentCols = tableInput.querySelectorAll('thead th').length;
-
-      const rows = Math.max(newRows, currentRows);
-      const cols = Math.max(newCols, currentCols);
-
-      // Save existing values
+      // Save existing values (2D array)
       const existingData = [];
       tableInput.querySelectorAll('tr').forEach((row) => {
         const rowData = [];
@@ -190,7 +170,7 @@
       // Header
       const thead = document.createElement('thead');
       const headerRow = document.createElement('tr');
-      for (let c = 0; c < cols; c++) {
+      for (let c = 0; c < newCols; c++) {
         const th = document.createElement('th');
         const input = document.createElement('input');
         input.type = 'text';
@@ -204,9 +184,9 @@
 
       // Body
       const tbody = document.createElement('tbody');
-      for (let r = 1; r < rows; r++) {
+      for (let r = 1; r < newRows; r++) {
         const tr = document.createElement('tr');
-        for (let c = 0; c < cols; c++) {
+        for (let c = 0; c < newCols; c++) {
           const td = document.createElement('td');
           const input = document.createElement('input');
           input.type = 'text';
@@ -224,11 +204,9 @@
 
     generateBtn.addEventListener('click', () => {
       let markup = '{| class="wikitable"\n|-\n';
-
       // Headers
       const headers = tableInput.querySelectorAll('thead th input');
       markup += '! ' + Array.from(headers).map(input => input.value.trim() || ' ').join(' !! ') + '\n';
-
       // Rows
       const bodyRows = tableInput.querySelectorAll('tbody tr');
       bodyRows.forEach(row => {
@@ -236,9 +214,7 @@
         const cells = row.querySelectorAll('td input');
         markup += '| ' + Array.from(cells).map(input => input.value.trim() || ' ').join(' || ') + '\n';
       });
-
       markup += '|}';
-
       wikiMarkup.value = markup;
     });
 
@@ -251,10 +227,6 @@
           setTimeout(() => (copyBtn.textContent = 'Copy to Clipboard'), 2000);
         });
       }
-    });
-
-    textAlign.addEventListener('change', () => {
-      markupWrapper.className = 'markup-wrapper ' + textAlign.value;
     });
   </script>
 </body>
