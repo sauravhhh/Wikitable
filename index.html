@@ -15,7 +15,7 @@
       min-height: 100vh;
     }
     .container {
-      max-width: 600px;
+      max-width: 750px;
       margin: 0 auto;
       background: white;
       padding: 1rem 1.5rem;
@@ -32,10 +32,14 @@
       display: block;
       margin: 0.5rem 0 0.2rem;
       font-weight: bold;
+      text-align: left;
+      max-width: 320px;
+      margin-left: auto;
+      margin-right: auto;
     }
-    input[type=number], button {
+    input[type=number], button, select {
       width: 100%;
-      max-width: 300px;
+      max-width: 320px;
       padding: 0.6rem;
       font-size: 1rem;
       margin: 0.5rem auto;
@@ -52,6 +56,12 @@
     button:hover {
       background-color: #0056b3;
     }
+    #clearTableBtn {
+      background-color: #dc3545;
+    }
+    #clearTableBtn:hover {
+      background-color: #b02a37;
+    }
     #tableInput {
       width: 100%;
       border-collapse: collapse;
@@ -61,12 +71,16 @@
       border: 1px solid #ddd;
       padding: 0.3rem;
       text-align: center;
+      vertical-align: middle;
     }
     #tableInput input[type=text] {
-      width: 100%;
+      width: 90%;
+      margin: 3px auto;
+      display: block;
+      font-size: 0.9rem;
     }
     .markup-wrapper {
-      max-width: 300px;
+      max-width: 750px;
       width: 100%;
       margin: 0 auto 1rem;
       display: flex;
@@ -86,12 +100,25 @@
       resize: vertical;
       box-sizing: border-box;
     }
-    #copyBtn {
-      background-color: #28a745;
-      color: white;
+    #copyBtn, #importFile {
+      margin-top: 0.3rem;
+      max-width: 320px;
+      width: 100%;
+      padding: 0.6rem;
+      font-size: 1rem;
+      cursor: pointer;
     }
-    #copyBtn:hover {
-      background-color: #1e7e34;
+    #livePreview {
+      border: 1px solid #ccc;
+      padding: 10px;
+      overflow: auto;
+      max-height: 300px;
+      background: #fff;
+      margin-top: 1rem;
+      width: 100%;
+      box-sizing: border-box;
+      border-radius: 5px;
+      text-align: center;
     }
     .footer {
       text-align: center;
@@ -101,7 +128,7 @@
       margin-top: auto;
     }
     @media (max-width: 500px) {
-      input[type=number], button {
+      input[type=number], button, select {
         max-width: 100%;
       }
       .markup-wrapper {
@@ -120,18 +147,32 @@
     <label for="cols">Columns:</label>
     <input type="number" id="cols" min="1" max="10" value="3" />
 
+    <label for="textAlign">Text Alignment (applies to whole table):</label>
+    <select id="textAlign">
+      <option value="left">Left</option>
+      <option value="center" selected>Center</option>
+      <option value="right">Right</option>
+    </select>
+
     <button id="createTableBtn">Create Table</button>
+    <button id="clearTableBtn">Clear Table</button>
 
     <form id="tableForm" style="display:none;">
       <table id="tableInput"></table>
       <button type="button" id="generateBtn">Generate WikiTable</button>
     </form>
 
-    <div id="markupWrapper" class="markup-wrapper">
+    <label for="importFile">Import CSV or JSON File:</label>
+    <input type="file" id="importFile" accept=".csv,application/json,text/csv" />
+
+    <div class="markup-wrapper">
       <label for="wikiMarkup" style="width: 100%;">Generated WikiTable Markup:</label>
       <textarea id="wikiMarkup" readonly></textarea>
       <button id="copyBtn">Copy to Clipboard</button>
     </div>
+
+    <label style="width: 100%; max-width: 750px; text-align:left; margin: 1rem auto 0.3rem;">Live Preview:</label>
+    <div id="livePreview"></div>
   </div>
 
   <div class="footer">
@@ -141,14 +182,18 @@
   <script>
     const rowsInput = document.getElementById('rows');
     const colsInput = document.getElementById('cols');
+    const textAlignSelect = document.getElementById('textAlign');
     const createTableBtn = document.getElementById('createTableBtn');
+    const clearTableBtn = document.getElementById('clearTableBtn');
     const tableForm = document.getElementById('tableForm');
     const tableInput = document.getElementById('tableInput');
     const generateBtn = document.getElementById('generateBtn');
     const wikiMarkup = document.getElementById('wikiMarkup');
     const copyBtn = document.getElementById('copyBtn');
+    const importFile = document.getElementById('importFile');
+    const livePreview = document.getElementById('livePreview');
 
-    createTableBtn.addEventListener('click', () => {
+    function createTable() {
       const newRows = parseInt(rowsInput.value, 10);
       const newCols = parseInt(colsInput.value, 10);
 
@@ -157,17 +202,19 @@
         return;
       }
 
-      // Save existing values (2D array)
+      // Save existing values if any
       const existingData = [];
-      tableInput.querySelectorAll('tr').forEach((row) => {
+      tableInput.querySelectorAll('tr').forEach(row => {
         const rowData = [];
-        row.querySelectorAll('input').forEach((inp) => rowData.push(inp.value));
-        existingData.push(rowData);
+        row.querySelectorAll('input').forEach(input => {
+          rowData.push(input.value);
+        });
+        if (rowData.length) existingData.push(rowData);
       });
 
       tableInput.innerHTML = '';
 
-      // Header
+      // Header row
       const thead = document.createElement('thead');
       const headerRow = document.createElement('tr');
       for (let c = 0; c < newCols; c++) {
@@ -182,7 +229,7 @@
       thead.appendChild(headerRow);
       tableInput.appendChild(thead);
 
-      // Body
+      // Body rows
       const tbody = document.createElement('tbody');
       for (let r = 1; r < newRows; r++) {
         const tr = document.createElement('tr');
@@ -200,14 +247,18 @@
       tableInput.appendChild(tbody);
 
       tableForm.style.display = 'block';
-    });
+      updatePreviewAndMarkup();
+    }
 
-    generateBtn.addEventListener('click', () => {
-      let markup = '{| class="wikitable"\n|-\n';
-      // Headers
+    function updatePreviewAndMarkup() {
+      const align = textAlignSelect.value;
+
+      // Generate WikiTable Markup with uniform alignment
+      let markup = `{| class="wikitable" style="text-align:${align}"\n|-\n`;
+
       const headers = tableInput.querySelectorAll('thead th input');
       markup += '! ' + Array.from(headers).map(input => input.value.trim() || ' ').join(' !! ') + '\n';
-      // Rows
+
       const bodyRows = tableInput.querySelectorAll('tbody tr');
       bodyRows.forEach(row => {
         markup += '|-\n';
@@ -215,8 +266,39 @@
         markup += '| ' + Array.from(cells).map(input => input.value.trim() || ' ').join(' || ') + '\n';
       });
       markup += '|}';
+
       wikiMarkup.value = markup;
+
+      // Generate HTML preview with same alignment
+      let html = `<table border="1" style="border-collapse:collapse; width:100%; text-align:${align}"><thead><tr>`;
+      headers.forEach(input => {
+        html += `<th style="padding:5px;">${input.value.trim() || '&nbsp;'}</th>`;
+      });
+      html += '</tr></thead><tbody>';
+      bodyRows.forEach(row => {
+        html += '<tr>';
+        const cells = row.querySelectorAll('td input');
+        cells.forEach(input => {
+          html += `<td style="padding:5px;">${input.value.trim() || '&nbsp;'}</td>`;
+        });
+        html += '</tr>';
+      });
+      html += '</tbody></table>';
+
+      livePreview.innerHTML = html;
+    }
+
+    createTableBtn.addEventListener('click', createTable);
+    clearTableBtn.addEventListener('click', () => {
+      tableInput.innerHTML = '';
+      tableForm.style.display = 'none';
+      wikiMarkup.value = '';
+      livePreview.innerHTML = '';
     });
+    generateBtn.addEventListener('click', updatePreviewAndMarkup);
+    tableInput.addEventListener('input', updatePreviewAndMarkup);
+    tableInput.addEventListener('change', updatePreviewAndMarkup);
+    textAlignSelect.addEventListener('change', updatePreviewAndMarkup);
 
     copyBtn.addEventListener('click', () => {
       const text = wikiMarkup.value;
@@ -228,6 +310,115 @@
         });
       }
     });
+
+    importFile.addEventListener('change', e => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        const text = evt.target.result.trim();
+        if (file.name.endsWith('.json')) {
+          try {
+            const json = JSON.parse(text);
+            if (Array.isArray(json) && json.length > 0) {
+              populateTableFromJson(json);
+            } else {
+              alert('Please upload a valid JSON file representing a 2D array.');
+            }
+          } catch {
+            alert('Invalid JSON file.');
+          }
+        } else {
+          parseCsvToTable(text);
+        }
+      };
+      reader.readAsText(file);
+      importFile.value = '';
+    });
+
+    function parseCsvToTable(csvText) {
+      const lines = csvText.split(/\r?\n/).filter(line => line.trim() !== '').map(line => {
+        return line.split(',').map(cell => cell.replace(/^"(.*)"$/, '$1'));
+      });
+      if (lines.length < 1) return;
+  
+      const rows = Math.min(lines.length, 20);
+      const cols = Math.min(lines[0].length, 10);
+      rowsInput.value = rows;
+      colsInput.value = cols;
+  
+      const data = [];
+      for (let r = 0; r < rows; r++) {
+        data[r] = [];
+        for (let c = 0; c < cols; c++) {
+          data[r][c] = lines[r][c] || '';
+        }
+      }
+      buildTableWithData(data);
+    }
+
+    function populateTableFromJson(jsonArray) {
+      let data = [];
+      if (Array.isArray(jsonArray[0])) {
+        data = jsonArray;
+      } else {
+        const keys = Object.keys(jsonArray[0]);
+        data.push(keys);
+        jsonArray.forEach(obj => {
+          data.push(keys.map(k => obj[k] || ''));
+        });
+      }
+      const rows = Math.min(data.length, 20);
+      const cols = Math.min(data[0].length, 10);
+      rowsInput.value = rows;
+      colsInput.value = cols;
+      const trimmedData = data.slice(0, rows).map(row => row.slice(0, cols));
+      buildTableWithData(trimmedData);
+    }
+
+    function buildTableWithData(data) {
+      const newRows = data.length;
+      const newCols = data[0].length;
+
+      tableInput.innerHTML = '';
+      const thead = document.createElement('thead');
+      const trHead = document.createElement('tr');
+      for (let c = 0; c < newCols; c++) {
+        const th = document.createElement('th');
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.placeholder = `Header ${c + 1}`;
+        input.value = data[0][c] || '';
+        th.appendChild(input);
+        trHead.appendChild(th);
+      }
+      thead.appendChild(trHead);
+      tableInput.appendChild(thead);
+
+      const tbody = document.createElement('tbody');
+      for (let r = 1; r < newRows; r++) {
+        const tr = document.createElement('tr');
+        for (let c = 0; c < newCols; c++) {
+          const td = document.createElement('td');
+          const input = document.createElement('input');
+          input.type = 'text';
+          input.placeholder = `Row ${r} Col ${c + 1}`;
+          input.value = data[r][c] || '';
+          td.appendChild(input);
+          tr.appendChild(td);
+        }
+        tbody.appendChild(tr);
+      }
+      tableInput.appendChild(tbody);
+      tableForm.style.display = 'block';
+      updatePreviewAndMarkup();
+    }
+
+    // Initialize default table on page load
+    window.onload = () => {
+      createTable();
+    };
   </script>
 </body>
-</html>
+  </html>
+  
